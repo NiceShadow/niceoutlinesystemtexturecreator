@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nice Outline System - Create Outline Texture</title>
+<style>
+  :root{
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --panel-2: #1b1f26;
+    --line: #262b33;
+    --text: #e7eaee;
+    --muted: #8b93a1;
+    --teal: #4eead4;
+    --amber: #ffb454;
+    --danger: #ff6b6b;
+    --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{min-height:100vh;}
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 28px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#101318,#0b0d10);
+  }
+  .brand{display:flex; align-items:center; gap:14px;}
+  .brand-mark{
+    width:34px;height:34px;border-radius:4px;
+    background:
+      linear-gradient(90deg, var(--teal) 0 20%, transparent 20% 100%),
+      linear-gradient(90deg, var(--amber) 20% 40%, transparent 40% 100%);
+    background-color:#000;
+    border:1px solid var(--line);
+    image-rendering:pixelated;
+  }
+  .brand h1{font-size:15px; margin:0; letter-spacing:.02em; font-weight:600;}
+  .brand p{margin:0; font-size:11.5px; color:var(--muted); font-family:var(--mono);}
+
+  .topactions{display:flex; gap:10px;}
+  button, .filebtn{
+    font-family:var(--sans); font-size:12.5px; font-weight:600;
+    border-radius:6px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--text); padding:8px 14px; cursor:pointer; transition:.12s border-color, .12s background;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  button:hover, .filebtn:hover{border-color:#3a4150;}
+  button.primary{background:var(--teal); color:#04211c; border-color:var(--teal);}
+  button.primary:hover{background:#63f0dc;}
+  button.ghost{background:transparent;}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+  input[type=file]{display:none;}
+  a.linkbtn{
+    font-family:var(--sans); font-size:12.5px; font-weight:600; text-decoration:none;
+    border-radius:6px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--text); padding:8px 14px; cursor:pointer; transition:.12s border-color, .12s background;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  a.linkbtn:hover{border-color:#3a4150;}
+  a.linkbtn.amber{color:#1f1508; background:var(--amber); border-color:var(--amber);}
+  a.linkbtn.amber:hover{background:#ffc57a;}
+
+  .layout{
+    display:grid; grid-template-columns: 260px 1fr 320px;
+    gap:0; min-height:calc(100vh - 72px);
+  }
+  @media (max-width: 1100px){
+    .layout{grid-template-columns:1fr; }
+  }
+
+  /* ---- Sidebar: outline ID list ---- */
+  .sidebar{
+    border-right:1px solid var(--line); padding:18px; background:var(--panel);
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .sidebar h2{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 4px;}
+  .idlist{display:flex; flex-direction:column; gap:6px; overflow-y:auto; max-height:60vh;}
+  .idrow{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel-2); cursor:grab;
+    position:relative;
+  }
+  .idrow:active{cursor:grabbing;}
+  .idrow.active{border-color:var(--teal); box-shadow:inset 0 0 0 1px var(--teal);}
+  .idrow.dragging{opacity:.4;}
+  .idrow.drag-over-top::before, .idrow.drag-over-bottom::after{
+    content:''; position:absolute; left:6px; right:6px; height:2px; background:var(--teal); border-radius:2px;
+  }
+  .idrow.drag-over-top::before{top:-4px;}
+  .idrow.drag-over-bottom::after{bottom:-4px;}
+  .idrow .grip{color:var(--muted); font-size:12px; flex-shrink:0; letter-spacing:-2px; user-select:none;}
+  .idrow .swatch{width:16px;height:16px;border-radius:3px; border:1px solid #000; flex-shrink:0;}
+  .idrow .lbl{font-family:var(--mono); font-size:12px; flex:1;}
+  .idrow .col-x{font-family:var(--mono); font-size:10.5px; color:var(--muted);}
+  .idrow button{padding:3px 7px; font-size:11px; border-radius:4px;}
+  .count{font-family:var(--mono); font-size:11px; color:var(--muted);}
+
+  /* ---- Center: editor for selected outline ---- */
+  .editor{padding:24px 28px; overflow-y:auto;}
+  .editor h2{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 14px;}
+
+  .strip-and-controls{display:flex; gap:26px; align-items:flex-start; flex-wrap:wrap;}
+  .strip{
+    display:flex; flex-direction:column; border:1px solid var(--line); border-radius:6px; overflow:hidden;
+    width:56px; flex-shrink:0;
+  }
+  .strip .px{height:56px; display:flex; align-items:center; justify-content:center; position:relative; border-bottom:1px solid rgba(0,0,0,.4);}
+  .strip .px:last-child{border-bottom:none;}
+  .strip .px .idx{position:absolute; left:4px; top:3px; font-family:var(--mono); font-size:9px; color:rgba(255,255,255,.55); mix-blend-mode:difference;}
+
+  .controls{flex:1; min-width:280px; display:flex; flex-direction:column; gap:20px;}
+  .field{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px;}
+  .field .fh{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .field .fh .name{font-size:13px; font-weight:600;}
+  .field .fh .row-tag{font-family:var(--mono); font-size:10.5px; color:var(--muted); background:var(--panel-2); padding:2px 7px; border-radius:4px; border:1px solid var(--line);}
+  .field .desc{font-size:11.5px; color:var(--muted); margin:0 0 10px; line-height:1.4;}
+
+  .colorrow{display:flex; align-items:center; gap:12px;}
+  input[type=color]{
+    -webkit-appearance:none; appearance:none; width:44px; height:36px; border:1px solid var(--line);
+    border-radius:6px; background:none; padding:0; cursor:pointer;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper{padding:2px;}
+  input[type=color]::-webkit-color-swatch{border-radius:4px; border:none;}
+  .hexval{font-family:var(--mono); font-size:12.5px; color:var(--muted);}
+
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:#2a2f38; outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--teal);
+    border:2px solid #0b0d10; cursor:pointer; margin-top:-1px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:var(--teal); border:2px solid #0b0d10; cursor:pointer;
+  }
+  .sliderrow{display:flex; align-items:center; gap:12px;}
+  .sliderval{font-family:var(--mono); font-size:12.5px; width:78px; text-align:right; color:var(--text); flex-shrink:0;}
+
+  .togglerow{display:flex; align-items:center; gap:12px; cursor:pointer;}
+  .togglerow input[type=checkbox]{position:absolute; opacity:0; width:0; height:0;}
+  .toggle-switch{
+    position:relative; width:44px; height:24px; border-radius:12px; background:#2a2f38;
+    border:1px solid var(--line); flex-shrink:0; transition:.15s background;
+  }
+  .toggle-switch::after{
+    content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:#e7eaee; transition:.15s transform;
+  }
+  .togglerow input:checked + .toggle-switch{background:var(--teal); border-color:var(--teal);}
+  .togglerow input:checked + .toggle-switch::after{transform:translateX(20px); background:#04211c;}
+
+  /* ---- Right: previews ---- */
+  .previews{border-left:1px solid var(--line); background:var(--panel); padding:22px; display:flex; flex-direction:column; gap:26px;}
+  .previews h2{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 12px;}
+
+  .tex-wrap{display:flex; flex-direction:column; align-items:center; gap:12px;}
+  #texCanvas{
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    width:256px; height:256px; border:1px solid var(--line); border-radius:4px; background:#000;
+  }
+  .tex-meta{font-family:var(--mono); font-size:10.5px; color:var(--muted); text-align:center;}
+
+  .demo-wrap{display:flex; flex-direction:column; align-items:center; gap:10px;}
+  #demoCanvas{width:256px; height:256px; border:1px solid var(--line); border-radius:4px; background:#000;}
+  .demo-note{font-size:11px; color:var(--muted); line-height:1.5; text-align:center;}
+
+  ::-webkit-scrollbar{width:8px; height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#2a2f38; border-radius:4px;}
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--panel-2); border:1px solid var(--teal); color:var(--text);
+    padding:10px 18px; border-radius:6px; font-size:12.5px; font-family:var(--mono);
+    opacity:0; pointer-events:none; transition:opacity .25s; z-index:50;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <div>
+      <h1>Nice Outline System - Create Outline Texture</h1>
+      <p>32×32 &middot; RGB8 &middot; outline data for Unreal</p>
+    </div>
+  </div>
+  <div class="topactions">
+    <a class="linkbtn" href="https://www.fab.com/sellers/NiceShadow" target="_blank" rel="noopener">Check out NiceShadow on FAB</a>
+    <a class="linkbtn amber" href="https://niceshadow.gitbook.io/nice-settings-menu-v2/getting-started/integration-in-your-project" target="_blank" rel="noopener">Documentation</a>
+    <label class="filebtn">
+      Upload texture
+      <input id="uploadInput" type="file" accept="image/png,image/*">
+    </label>
+    <button id="downloadBtn" class="primary">Download PNG</button>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <h2>Outline IDs</h2>
+      <span class="count" id="countLbl">0 / 32</span>
+    </div>
+    <div class="idlist" id="idList"></div>
+    <button id="addBtn" class="primary" style="justify-content:center;">+ Add outline ID</button>
+  </div>
+
+  <!-- EDITOR -->
+  <div class="editor" id="editorArea">
+    <!-- filled by JS -->
+  </div>
+
+  <!-- PREVIEWS -->
+  <div class="previews">
+    <div>
+      <h2>Full texture</h2>
+      <div class="tex-wrap">
+        <canvas id="texCanvas" width="32" height="32"></canvas>
+        <div class="tex-meta" id="texMeta">32×32 px &middot; nearest-neighbor</div>
+      </div>
+    </div>
+    <div>
+      <h2>Outline preview</h2>
+      <div class="demo-wrap">
+        <canvas id="demoCanvas" width="256" height="256"></canvas>
+        <p class="demo-note">Shows the outline, fill color, pulsing and special effect for the <b>selected</b> ID. The darker the fill color, the more see-through it looks.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const MAX_OUTLINES = 32;
+const TEX_SIZE = 32;
+const STORAGE_KEY = 'outlineTextureEncoder_v1';
+
+const SPECIAL_GRAY_STEPS = [0, 85, 170, 255]; // Off, Effect 1, Effect 2, Effect 3
+
+const ROW_DEFS = [
+  {key:'outlineColor', type:'color', row:0, name:'Outline color', tag:'row 0', desc:'Color of the outline line drawn around the object.'},
+  {key:'thickness',    type:'gray',  row:1, name:'Outline thickness', tag:'row 1', desc:'How thick the outline is, from none at all to the thickest setting.'},
+  {key:'fillColor',   type:'color', row:2, name:'Filled color', tag:'row 2', desc:'Tint applied across the whole object surface. The darker the color the more transparent the effect is. Black = no filled color effect.'},
+  {key:'pulse',        type:'gray',  row:3, name:'Pulse speed', tag:'row 3', desc:'How fast the fill color pulses. All the way left means no pulsing at all.'},
+  {key:'special',      type:'step',  row:4, name:'Special effect', tag:'row 4', desc:'Off, or one of 3 special effects.'},
+  {key:'specialSpeed', type:'gray',  row:5, name:'Special effect speed', tag:'row 5', desc:'How fast the special effect texture moves across the object.'},
+  {key:'renderThroughWalls', type:'toggle', row:6, name:'Render through walls', tag:'row 6', desc:'When on, this outline is meant to render even when hidden behind other objects. Not shown in this preview.'},
+];
+
+let state = {
+  outlines: [ defaultOutline() ],
+  selected: 0
+};
+
+function defaultOutline(){
+  return {
+    outlineColor: {r:255, g:255, b:255},
+    thickness: 0.15,
+    fillColor: {r:0, g:0, b:0},
+    pulse: 0.0,
+    special: 0, // index into SPECIAL_GRAY_STEPS
+    specialSpeed: 0.1,
+    renderThroughWalls: false
+  };
+}
+
+function rgbToHex(c){
+  return '#' + [c.r,c.g,c.b].map(v => v.toString(16).padStart(2,'0')).join('');
+}
+function hexToRgb(hex){
+  const n = parseInt(hex.slice(1), 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+
+// Fills in any fields missing from an outline saved by an older version of this
+// tool (e.g. before "specialSpeed" existed) so old saved/cached data never
+// breaks rendering. Existing valid values are always kept.
+function normalizeOutline(o){
+  const d = defaultOutline();
+  const merged = Object.assign({}, d, o || {});
+  merged.outlineColor = (o && o.outlineColor) ? o.outlineColor : d.outlineColor;
+  merged.fillColor = (o && o.fillColor) ? o.fillColor : d.fillColor;
+  if(typeof merged.thickness !== 'number') merged.thickness = d.thickness;
+  if(typeof merged.pulse !== 'number') merged.pulse = d.pulse;
+  if(typeof merged.specialSpeed !== 'number') merged.specialSpeed = d.specialSpeed;
+  if(typeof merged.renderThroughWalls !== 'boolean') merged.renderThroughWalls = d.renderThroughWalls;
+  if(typeof merged.special !== 'number' || merged.special < 0 || merged.special >= SPECIAL_GRAY_STEPS.length){
+    merged.special = 0;
+  }
+  return merged;
+}
+
+// ---------------- persistence ----------------
+function save(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){ console.warn('Could not save state', e); }
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && Array.isArray(parsed.outlines) && parsed.outlines.length){
+        state = parsed;
+        state.outlines = state.outlines.map(normalizeOutline);
+        if(!(state.selected >= 0 && state.selected < state.outlines.length)) state.selected = 0;
+        return;
+      }
+    }
+  }catch(e){ console.warn('Could not load saved state', e); }
+}
+
+// ---------------- rendering: sidebar list ----------------
+let dragSrcIndex = null;
+
+function renderList(){
+  const list = document.getElementById('idList');
+  list.innerHTML = '';
+  state.outlines.forEach((o, i) => {
+    const row = document.createElement('div');
+    row.className = 'idrow' + (i === state.selected ? ' active' : '');
+    row.draggable = true;
+    row.innerHTML = `
+      <span class="grip" title="Drag to reorder">⠿</span>
+      <div class="swatch" data-swatch-idx="${i}" style="background:${rgbToHex(o.outlineColor)}"></div>
+      <div class="lbl">ID ${i}</div>
+      <div class="col-x">col ${i}</div>
+      <button data-del="${i}" title="Delete this outline ID">✕</button>
+    `;
+    row.addEventListener('click', (e) => {
+      if(e.target.closest('button')) return;
+      state.selected = i;
+      renderAll();
+    });
+    row.querySelector('button').addEventListener('click', () => deleteOutline(i));
+
+    row.addEventListener('dragstart', (e) => {
+      dragSrcIndex = i;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      list.querySelectorAll('.idrow').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+      dragSrcIndex = null;
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if(dragSrcIndex === null || dragSrcIndex === i) return;
+      e.dataTransfer.dropEffect = 'move';
+      const rect = row.getBoundingClientRect();
+      const isAfter = (e.clientY - rect.top) > rect.height / 2;
+      row.classList.toggle('drag-over-top', !isAfter);
+      row.classList.toggle('drag-over-bottom', isAfter);
+    });
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+      if(dragSrcIndex === null || dragSrcIndex === i) return;
+      const rect = row.getBoundingClientRect();
+      const isAfter = (e.clientY - rect.top) > rect.height / 2;
+      let targetIndex = i + (isAfter ? 1 : 0);
+      if(dragSrcIndex < targetIndex) targetIndex -= 1; // account for the shift once the dragged item is removed
+      moveOutline(dragSrcIndex, targetIndex);
+    });
+
+    list.appendChild(row);
+  });
+  document.getElementById('countLbl').textContent = `${state.outlines.length} / ${MAX_OUTLINES}`;
+  document.getElementById('addBtn').disabled = state.outlines.length >= MAX_OUTLINES;
+}
+
+// Moves the outline at `from` to position `to`, keeping the same outline selected.
+function moveOutline(from, to){
+  if(from === to || from < 0 || to < 0 || from >= state.outlines.length || to >= state.outlines.length) return;
+  const selectedObj = state.outlines[state.selected];
+  const [item] = state.outlines.splice(from, 1);
+  state.outlines.splice(to, 0, item);
+  state.selected = state.outlines.indexOf(selectedObj);
+  renderAll();
+  save();
+}
+
+function syncSwatch(i){
+  const box = document.querySelector(`.swatch[data-swatch-idx="${i}"]`);
+  if(box) box.style.background = rgbToHex(state.outlines[i].outlineColor);
+}
+
+function deleteOutline(i){
+  if(state.outlines.length <= 1){
+    toast('At least one outline ID must remain.');
+    return;
+  }
+  state.outlines.splice(i, 1);
+  if(state.selected >= state.outlines.length) state.selected = state.outlines.length - 1;
+  renderAll();
+  save();
+}
+
+document.getElementById('addBtn').addEventListener('click', () => {
+  if(state.outlines.length >= MAX_OUTLINES) return;
+  state.outlines.push(defaultOutline());
+  state.selected = state.outlines.length - 1;
+  renderAll();
+  save();
+});
+
+// ---------------- rendering: editor ----------------
+function renderEditor(){
+  try{
+    renderEditorInner();
+  }catch(err){
+    console.error('renderEditor failed:', err);
+    const area = document.getElementById('editorArea');
+    area.innerHTML = '';
+    const box = document.createElement('div');
+    box.className = 'field';
+    box.innerHTML = `
+      <div class="fh"><span class="name">Something went wrong rendering this outline ID</span></div>
+      <p class="desc">${(err && err.message) ? err.message : err}</p>
+    `;
+    const fixBtn = document.createElement('button');
+    fixBtn.className = 'primary';
+    fixBtn.textContent = 'Reset this outline ID to defaults';
+    fixBtn.addEventListener('click', () => {
+      state.outlines[state.selected] = defaultOutline();
+      renderAll();
+      save();
+    });
+    box.appendChild(fixBtn);
+    area.appendChild(box);
+  }
+}
+
+function renderEditorInner(){
+  const area = document.getElementById('editorArea');
+  const o = state.outlines[state.selected];
+  area.innerHTML = '';
+
+  const h2 = document.createElement('h2');
+  h2.textContent = `Editing outline ID ${state.selected} (column ${state.selected})`;
+  area.appendChild(h2);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'strip-and-controls';
+
+  // pixel strip
+  const strip = document.createElement('div');
+  strip.className = 'strip';
+  ROW_DEFS.forEach(def => {
+    const px = document.createElement('div');
+    px.className = 'px';
+    px.style.background = pixelColorForRow(o, def);
+    px.innerHTML = `<span class="idx">y${def.row}</span>`;
+    strip.appendChild(px);
+  });
+  wrap.appendChild(strip);
+
+  // controls
+  const controls = document.createElement('div');
+  controls.className = 'controls';
+
+  ROW_DEFS.forEach(def => {
+    const field = document.createElement('div');
+    field.className = 'field';
+
+    const fh = document.createElement('div');
+    fh.className = 'fh';
+    fh.innerHTML = `<span class="name">${def.name}</span><span class="row-tag">${def.tag}</span>`;
+    field.appendChild(fh);
+
+    const desc = document.createElement('p');
+    desc.className = 'desc';
+    desc.textContent = def.desc;
+    field.appendChild(desc);
+
+    if(def.type === 'color'){
+      const row = document.createElement('div');
+      row.className = 'colorrow';
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.value = rgbToHex(o[def.key]);
+      const hex = document.createElement('span');
+      hex.className = 'hexval';
+      hex.textContent = rgbToHex(o[def.key]).toUpperCase();
+      input.addEventListener('input', () => {
+        o[def.key] = hexToRgb(input.value);
+        hex.textContent = input.value.toUpperCase();
+        updatePixelStrip(strip, o);
+        renderTexture();
+        renderDemo();
+        if(def.key === 'outlineColor') syncSwatch(state.selected);
+        save();
+      });
+      row.appendChild(input);
+      row.appendChild(hex);
+      field.appendChild(row);
+
+    } else if(def.type === 'gray'){
+      if(typeof o[def.key] !== 'number' || isNaN(o[def.key])) o[def.key] = 0;
+      const row = document.createElement('div');
+      row.className = 'sliderrow';
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = 0; input.max = 1; input.step = 0.01;
+      input.value = o[def.key];
+      const val = document.createElement('span');
+      val.className = 'sliderval';
+      val.textContent = o[def.key].toFixed(2) + '  (' + Math.round(o[def.key]*255) + ')';
+      input.addEventListener('input', () => {
+        o[def.key] = parseFloat(input.value);
+        val.textContent = o[def.key].toFixed(2) + '  (' + Math.round(o[def.key]*255) + ')';
+        updatePixelStrip(strip, o);
+        renderTexture();
+        if(def.key === 'thickness' || def.key === 'pulse' || def.key === 'specialSpeed') renderDemo();
+        save();
+      });
+      row.appendChild(input);
+      row.appendChild(val);
+      field.appendChild(row);
+
+    } else if(def.type === 'step'){
+      if(typeof o[def.key] !== 'number' || isNaN(o[def.key]) || o[def.key] < 0 || o[def.key] >= SPECIAL_GRAY_STEPS.length){
+        o[def.key] = 0;
+      }
+      const row = document.createElement('div');
+      row.className = 'sliderrow';
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = 0; input.max = SPECIAL_GRAY_STEPS.length - 1; input.step = 1;
+      input.value = o[def.key];
+      const val = document.createElement('span');
+      val.className = 'sliderval';
+      val.textContent = specialLabel(o[def.key]);
+      input.addEventListener('input', () => {
+        o[def.key] = parseInt(input.value, 10);
+        val.textContent = specialLabel(o[def.key]);
+        updatePixelStrip(strip, o);
+        renderTexture();
+        renderDemo();
+        save();
+      });
+      row.appendChild(input);
+      row.appendChild(val);
+      field.appendChild(row);
+
+    } else if(def.type === 'toggle'){
+      if(typeof o[def.key] !== 'boolean') o[def.key] = false;
+      const row = document.createElement('label');
+      row.className = 'togglerow';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = o[def.key];
+      const sw = document.createElement('span');
+      sw.className = 'toggle-switch';
+      const stateLbl = document.createElement('span');
+      stateLbl.className = 'sliderval';
+      stateLbl.textContent = o[def.key] ? 'On' : 'Off';
+      input.addEventListener('change', () => {
+        o[def.key] = input.checked;
+        stateLbl.textContent = o[def.key] ? 'On' : 'Off';
+        updatePixelStrip(strip, o);
+        renderTexture();
+        save();
+      });
+      row.appendChild(input);
+      row.appendChild(sw);
+      row.appendChild(stateLbl);
+      field.appendChild(row);
+    }
+
+    controls.appendChild(field);
+  });
+
+  wrap.appendChild(controls);
+  area.appendChild(wrap);
+}
+
+function specialLabel(index){
+  return index === 0 ? 'Off' : `Effect ${index}`;
+}
+
+function pixelColorForRow(o, def){
+  if(def.type === 'color') return rgbToHex(o[def.key]);
+  if(def.type === 'gray'){
+    const g = Math.round(o[def.key]*255);
+    return `rgb(${g},${g},${g})`;
+  }
+  if(def.type === 'step'){
+    const g = SPECIAL_GRAY_STEPS[o[def.key]] ?? 0;
+    return `rgb(${g},${g},${g})`;
+  }
+  if(def.type === 'toggle'){
+    return o[def.key] ? '#ffffff' : '#000000';
+  }
+}
+
+function updatePixelStrip(strip, o){
+  const pxs = strip.querySelectorAll('.px');
+  ROW_DEFS.forEach((def, i) => {
+    pxs[i].style.background = pixelColorForRow(o, def);
+  });
+}
+
+// ---------------- rendering: full texture ----------------
+function renderTexture(){
+  const canvas = document.getElementById('texCanvas');
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(TEX_SIZE, TEX_SIZE);
+
+  // fill everything black first
+  for(let i = 0; i < img.data.length; i += 4){
+    img.data[i] = 0; img.data[i+1] = 0; img.data[i+2] = 0; img.data[i+3] = 255;
+  }
+
+  state.outlines.forEach((o, x) => {
+    if(x >= TEX_SIZE) return;
+    setPixel(img, x, 0, o.outlineColor.r, o.outlineColor.g, o.outlineColor.b);
+    const t = Math.round(o.thickness*255);
+    setPixel(img, x, 1, t, t, t);
+    setPixel(img, x, 2, o.fillColor.r, o.fillColor.g, o.fillColor.b);
+    const p = Math.round(o.pulse*255);
+    setPixel(img, x, 3, p, p, p);
+    const s = SPECIAL_GRAY_STEPS[o.special] ?? 0;
+    setPixel(img, x, 4, s, s, s);
+    const ss = Math.round(o.specialSpeed*255);
+    setPixel(img, x, 5, ss, ss, ss);
+    const w6 = o.renderThroughWalls ? 255 : 0;
+    setPixel(img, x, 6, w6, w6, w6);
+  });
+
+  ctx.putImageData(img, 0, 0);
+  document.getElementById('texMeta').textContent =
+    `32×32 px \u00b7 ${state.outlines.length} outline ID${state.outlines.length===1?'':'s'} encoded`;
+}
+
+function setPixel(imgData, x, y, r, g, b, a=255){
+  const idx = (y * TEX_SIZE + x) * 4;
+  imgData.data[idx] = r;
+  imgData.data[idx+1] = g;
+  imgData.data[idx+2] = b;
+  imgData.data[idx+3] = a;
+}
+
+// ---------------- rendering: single outline demo ----------------
+const OBJ_RECT = {x:68, y:68, w:120, h:120, r:18};
+
+/* =========================================================================
+   SPECIAL EFFECT OVERLAY CONFIG — edit this to customize each effect.
+   `texture`   : image file for that effect (white shapes on transparent
+                 background work best — they get tinted to the outline
+                 color automatically and blended additively).
+   `direction` : pan direction — 'up', 'down', 'left', 'right',
+                 'up-left', 'up-right', 'down-left', 'down-right'.
+                 Note: a diagonal-striped texture won't visibly move if it
+                 pans parallel to its own stripes — pan it perpendicular
+                 to the stripe angle instead (that's why effect 1 below
+                 uses the same direction as effect 3, not 'up-left').
+   `tileSize`  : size in px each tile of the texture is drawn at inside the
+                 preview box. Smaller = more repeats (more visible shapes).
+   `opacity`   : 0–1. By default the effect is drawn at the exact same
+                 color and strength as the outline color (1.0). Lower this
+                 (e.g. 0.5) to make the effect more transparent/subtle.
+   ========================================================================= */
+const SPECIAL_EFFECT_CONFIG = {
+  1: { texture: 'special_effect_1.png', direction: 'up-right', tileSize: 32, opacity: .5 },
+  2: { texture: 'special_effect_2.png', direction: 'up',       tileSize: 64, opacity: .5 },
+  3: { texture: 'special_effect_3.png', direction: 'up-right', tileSize: 40, opacity: .5 },
+};
+
+const PULSE_SLOWDOWN = 0.4;          // 60% slower than the original pulse speed
+const PULSE_OPACITY_DIP = 0.35;       // how far opacity dips during a pulse (0.2 = 20% below base)
+const OUTLINE_THICKNESS_BOOST = 1.2; // outline drawn 20% thicker than before
+
+// Pan direction vectors, normalized to unit length so diagonals don't move faster.
+const DIRECTION_VECTORS = {
+  'up':          [0, -1],
+  'down':        [0, 1],
+  'left':        [-1, 0],
+  'right':       [1, 0],
+  'up-left':     [-Math.SQRT1_2, -Math.SQRT1_2],
+  'up-right':    [Math.SQRT1_2, -Math.SQRT1_2],
+  'down-left':   [-Math.SQRT1_2, Math.SQRT1_2],
+  'down-right':  [Math.SQRT1_2, Math.SQRT1_2],
+};
+
+let bgImage = new Image();
+let objImage = new Image();
+let demoAssetsReady = false;
+let demoAnimId = null;
+
+const specialEffectImages = {}; // index -> Image
+let specialEffectAssetsReady = false;
+
+// Reusable offscreen canvas used to tint each special-effect texture to the
+// outline color before it's composited into the preview.
+const tintCanvas = document.createElement('canvas');
+const tintCtx = tintCanvas.getContext('2d');
+
+function buildDemoAssets(){
+  let loaded = 0;
+  const total = 2 + Object.keys(SPECIAL_EFFECT_CONFIG).length;
+  const onOne = () => { loaded++; if(loaded === total){ demoAssetsReady = true; specialEffectAssetsReady = true; renderDemo(); } };
+  bgImage.onload = onOne;
+  objImage.onload = onOne;
+  bgImage.onerror = onOne;
+  objImage.onerror = onOne;
+  bgImage.src = 'outline_preview_background.png';
+  objImage.src = 'outline_preview_object.png';
+
+  Object.entries(SPECIAL_EFFECT_CONFIG).forEach(([idx, cfg]) => {
+    const img = new Image();
+    img.onload = onOne;
+    img.onerror = onOne;
+    img.src = cfg.texture;
+    specialEffectImages[idx] = img;
+  });
+}
+
+function luminance(c){
+  return (0.299*c.r + 0.587*c.g + 0.114*c.b) / 255;
+}
+
+function roundRectPath(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+}
+
+// Draws `img` tiled across a w x h area (in local 0,0 coordinates), panning by
+// (shiftX, shiftY) pixels, at `tileSize` px per tile.
+function drawTiledPattern(octx, img, w, h, tileSize, shiftX, shiftY){
+  const sx = ((shiftX % tileSize) + tileSize) % tileSize;
+  const sy = ((shiftY % tileSize) + tileSize) % tileSize;
+  for(let ty = -tileSize + sy; ty < h + tileSize; ty += tileSize){
+    for(let tx = -tileSize + sx; tx < w + tileSize; tx += tileSize){
+      octx.drawImage(img, tx, ty, tileSize, tileSize);
+    }
+  }
+}
+
+// Draws the special-effect texture tinted to `tintColor`, panning per `direction`,
+// clipped tightly to the rounded box in `rect`.
+function drawPanningTexture(ctx, img, rect, direction, tileSize, offsetPx, tintColor, opacity){
+  if(!img || !img.complete || img.naturalWidth === 0) return;
+  const {x,y,w,h,r} = rect;
+  const vec = DIRECTION_VECTORS[direction] || DIRECTION_VECTORS['up'];
+  const shiftX = vec[0] * offsetPx;
+  const shiftY = vec[1] * offsetPx;
+
+  tintCanvas.width = w;
+  tintCanvas.height = h;
+  tintCtx.clearRect(0, 0, w, h);
+  tintCtx.globalCompositeOperation = 'source-over';
+  drawTiledPattern(tintCtx, img, w, h, tileSize, shiftX, shiftY);
+  // recolor the white shapes to the outline color, keeping their alpha shape
+  tintCtx.globalCompositeOperation = 'source-atop';
+  tintCtx.fillStyle = tintColor;
+  tintCtx.fillRect(0, 0, w, h);
+
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, r);
+  ctx.clip();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = (typeof opacity === 'number') ? opacity : 1.0;
+  ctx.drawImage(tintCanvas, x, y, w, h);
+  ctx.restore();
+}
+
+function drawDemoFrame(o, fillAlpha, elapsedSeconds){
+  const canvas = document.getElementById('demoCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const bgOk = bgImage.complete && bgImage.naturalWidth > 0;
+  const objOk = objImage.complete && objImage.naturalWidth > 0;
+  const {x,y,w,h,r} = OBJ_RECT;
+
+  if(bgOk){
+    ctx.drawImage(bgImage, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = '#050607';
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // draw the object, always clipped to the rounded box (guarantees rounded
+  // corners even if the image is stretched, cached weirdly, or fails to load)
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, r);
+  ctx.clip();
+  if(objOk){
+    ctx.drawImage(objImage, x, y, w, h);
+  } else {
+    ctx.fillStyle = '#aab0ba';
+    ctx.fillRect(x, y, w, h);
+  }
+  ctx.restore();
+
+  // filled color: darker = more transparent, blended additively over the object
+  if(fillAlpha > 0.003){
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = fillAlpha;
+    ctx.fillStyle = rgbToHex(o.fillColor);
+    roundRectPath(ctx, x, y, w, h, r);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // special effect: panning texture layer above the filled color, tinted to the
+  // outline color, clipped to the same rounded box
+  if(o.special > 0){
+    const cfg = SPECIAL_EFFECT_CONFIG[o.special];
+    const img = specialEffectImages[o.special];
+    if(cfg && img){
+      const speedPxPerSec = o.specialSpeed * 70; // 8 - 78 px/sec
+      const offsetPx = elapsedSeconds * speedPxPerSec;
+      drawPanningTexture(ctx, img, OBJ_RECT, cfg.direction, cfg.tileSize, offsetPx, rgbToHex(o.outlineColor), cfg.opacity);
+    }
+  }
+
+  // outline stroke around the object edge
+  const maxThickness = 16 * OUTLINE_THICKNESS_BOOST; // px at this preview scale
+  const thicknessPx = o.thickness * maxThickness;
+  if(thicknessPx > 0.05){
+    ctx.strokeStyle = rgbToHex(o.outlineColor);
+    ctx.lineWidth = thicknessPx;
+    roundRectPath(ctx, x, y, w, h, r);
+    ctx.stroke();
+  }
+}
+
+function renderDemo(){
+  if(demoAnimId){ cancelAnimationFrame(demoAnimId); demoAnimId = null; }
+  const o = state.outlines[state.selected];
+
+  const baseAlpha = luminance(o.fillColor); // darker color -> lower opacity
+  const needsAnimation = o.pulse > 0.003 || o.special > 0;
+
+  if(needsAnimation){
+    const freqHz = (0.3 + o.pulse * 2.7) * PULSE_SLOWDOWN;
+    const start = performance.now();
+    const step = (now) => {
+      const t = (now - start) / 1000;
+      let alpha = baseAlpha;
+      if(o.pulse > 0.003){
+        const osc = 0.5 - 0.5*Math.cos(2*Math.PI*freqHz*t); // oscillates 0 -> 1 -> 0
+        alpha = baseAlpha - (baseAlpha*PULSE_OPACITY_DIP)*osc; // between baseAlpha and (1 - PULSE_OPACITY_DIP) of baseAlpha
+      }
+      drawDemoFrame(o, alpha, t);
+      demoAnimId = requestAnimationFrame(step);
+    };
+    demoAnimId = requestAnimationFrame(step);
+  } else {
+    drawDemoFrame(o, baseAlpha, 0);
+  }
+}
+
+// ---------------- toast ----------------
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ---------------- download ----------------
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const canvas = document.getElementById('texCanvas');
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'outline_id_texture.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Texture downloaded');
+  }, 'image/png');
+});
+
+function nearestSpecialIndex(grayValue){
+  let best = 0, bestDist = Infinity;
+  SPECIAL_GRAY_STEPS.forEach((v, i) => {
+    const d = Math.abs(v - grayValue);
+    if(d < bestDist){ bestDist = d; best = i; }
+  });
+  return best;
+}
+
+// ---------------- upload ----------------
+document.getElementById('uploadInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const tmp = document.createElement('canvas');
+      tmp.width = TEX_SIZE; tmp.height = TEX_SIZE;
+      const tctx = tmp.getContext('2d');
+      tctx.imageSmoothingEnabled = false;
+      tctx.drawImage(img, 0, 0, TEX_SIZE, TEX_SIZE);
+      const data = tctx.getImageData(0, 0, TEX_SIZE, TEX_SIZE).data;
+
+      const outlines = [];
+      for(let x = 0; x < TEX_SIZE; x++){
+        const get = (y) => {
+          const idx = (y*TEX_SIZE + x)*4;
+          return {r:data[idx], g:data[idx+1], b:data[idx+2]};
+        };
+        const outlineColor = get(0);
+        const thicknessPx = get(1);
+        const fillColor = get(2);
+        const pulsePx = get(3);
+        const specialPx = get(4);
+        const specialSpeedPx = get(5);
+        const wallsPx = get(6);
+
+        const allZero = [outlineColor,thicknessPx,fillColor,pulsePx,specialPx,specialSpeedPx,wallsPx]
+          .every(c => c.r===0 && c.g===0 && c.b===0);
+        if(allZero) break; // stop at first fully-black column, treat as unused
+
+        outlines.push({
+          outlineColor,
+          thickness: thicknessPx.r/255,
+          fillColor,
+          pulse: pulsePx.r/255,
+          special: nearestSpecialIndex(specialPx.r),
+          specialSpeed: specialSpeedPx.r/255,
+          renderThroughWalls: wallsPx.r > 127
+        });
+      }
+
+      if(outlines.length === 0) outlines.push(defaultOutline());
+      state = { outlines: outlines.map(normalizeOutline), selected: 0 };
+      renderAll();
+      save();
+      toast(`Imported ${outlines.length} outline ID${outlines.length===1?'':'s'} from texture`);
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
+
+// ---------------- init ----------------
+function renderAll(){
+  renderList();
+  renderEditor();
+  renderTexture();
+  renderDemo();
+}
+
+load();
+buildDemoAssets();
+renderAll();
+</script>
+</body>
+</html>
