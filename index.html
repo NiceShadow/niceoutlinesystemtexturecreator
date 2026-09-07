@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,11 +10,13 @@
 <style>
   :root{
     --bg: #000000;
-    --surface: rgba(255,255,255,.055);
-    --surface-2: rgba(255,255,255,.085);
-    --surface-solid: #17181b;
-    --border: rgba(255,255,255,.09);
-    --border-strong: rgba(255,255,255,.18);
+    --decor-1: rgba(63,214,194,.07);
+    --decor-2: rgba(255,255,255,.03);
+    --surface: rgba(255,255,255,.065);
+    --surface-2: rgba(255,255,255,.11);
+    --border: rgba(255,255,255,.10);
+    --border-strong: rgba(255,255,255,.20);
+    --highlight: rgba(255,255,255,.14);
     --text: #f5f5f7;
     --muted: rgba(235,235,245,.62);
     --faint: rgba(235,235,245,.38);
@@ -22,31 +24,90 @@
     --accent-strong: #2ec4b0;
     --accent-ink: #04231e;
     --danger: #ff453a;
+    --glass-bg: #0a0a0b;
+    --checker-a: #17181a;
+    --checker-b: #0a0a0b;
+    --topbar-bg: rgba(8,8,9,.55);
+    --toast-bg: rgba(28,28,30,.75);
+    --scrollbar-thumb: rgba(255,255,255,.15);
+    --scrollbar-thumb-hover: rgba(255,255,255,.24);
+    --blob-op-1: .5;
+    --blob-op-2: .32;
     --r-sm: 8px;
     --r-md: 14px;
-    --r-lg: 20px;
+    --r-lg: 22px;
     --r-pill: 999px;
     --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
     --sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg: #eef0f2;
+    --decor-1: rgba(63,214,194,.16);
+    --decor-2: rgba(120,140,255,.10);
+    --surface: rgba(255,255,255,.55);
+    --surface-2: rgba(255,255,255,.78);
+    --border: rgba(0,0,0,.08);
+    --border-strong: rgba(0,0,0,.16);
+    --highlight: rgba(255,255,255,.6);
+    --text: #1d1d1f;
+    --muted: rgba(60,60,67,.68);
+    --faint: rgba(60,60,67,.42);
+    --accent: #0f9a89;
+    --accent-strong: #0c8375;
+    --accent-ink: #ffffff;
+    --danger: #d70015;
+    --glass-bg: #d8dadd;
+    --checker-a: #e2e4e7;
+    --checker-b: #d2d5d9;
+    --topbar-bg: rgba(255,255,255,.55);
+    --toast-bg: rgba(255,255,255,.85);
+    --scrollbar-thumb: rgba(0,0,0,.16);
+    --scrollbar-thumb-hover: rgba(0,0,0,.26);
+    --blob-op-1: .35;
+    --blob-op-2: .22;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
   body{
     min-height:100vh;
-    background:
-      radial-gradient(900px 520px at 18% -12%, rgba(63,214,194,.06), transparent 60%),
-      radial-gradient(700px 460px at 100% 0%, rgba(255,255,255,.035), transparent 55%),
-      var(--bg);
     -webkit-font-smoothing:antialiased;
+    transition:background-color .35s ease, color .35s ease;
+    overflow-x:hidden;
   }
   ::selection{background:rgba(63,214,194,.32); color:#fff;}
   :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px;}
 
+  /* ---- ambient aurora backdrop the glass panels blur against ---- */
+  .aurora{position:fixed; inset:0; overflow:hidden; z-index:0; pointer-events:none;}
+  .aurora span{position:absolute; border-radius:50%; filter:blur(110px); transition:opacity .35s ease, background .35s ease;}
+  .aurora .b1{width:920px; height:620px; top:-220px; left:-160px; background:#3a3a3a; opacity:var(--blob-op-1);}
+  .aurora .b2{width:620px; height:520px; top:60px; right:-200px; background:#9b9b9b; opacity:var(--blob-op-2);}
+  .aurora .b3{width:560px; height:420px; bottom:-260px; left:20%; background:var(--accent); opacity:calc(var(--blob-op-2) * .6);}
+
+  .app{position:relative; z-index:1;}
+
   .surface{
     background:var(--surface);
-    -webkit-backdrop-filter:blur(24px) saturate(160%);
-    backdrop-filter:blur(24px) saturate(160%);
+    -webkit-backdrop-filter:blur(34px) saturate(180%);
+    backdrop-filter:blur(34px) saturate(180%);
     border:1px solid var(--border);
+    box-shadow:inset 0 1px 0 var(--highlight), 0 24px 48px -28px rgba(0,0,0,.55);
+    transition:background-color .3s ease, border-color .3s ease;
+    /* keeps the blurred backdrop on its own stable GPU layer so hovering a
+       child button/tile doesn't force a recomposite that flashes the blur */
+    transform:translateZ(0);
+    -webkit-transform:translateZ(0);
+    isolation:isolate;
+  }
+  /* Same look, no blur. Two adjacent backdrop-filter regions touching edge to
+     edge (this bar sits glued to the sticky topbar) is a known browser
+     rendering bug that flashes a solid box at the seam — so the bar directly
+     under the topbar skips the blur while everything else keeps it. */
+  .surface-nb{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    box-shadow:inset 0 1px 0 var(--highlight), 0 24px 48px -28px rgba(0,0,0,.55);
+    transition:background-color .3s ease, border-color .3s ease;
   }
 
   /* ================= topbar ================= */
@@ -54,75 +115,106 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:14px 28px; border-bottom:1px solid var(--border);
     position:sticky; top:0; z-index:50;
-    background:rgba(10,10,11,.7);
-    -webkit-backdrop-filter:blur(20px);
-    backdrop-filter:blur(20px);
+    background:var(--topbar-bg);
+    -webkit-backdrop-filter:blur(28px) saturate(180%);
+    backdrop-filter:blur(28px) saturate(180%);
+    transition:background-color .3s ease, border-color .3s ease;
+    transform:translateZ(0);
+    -webkit-transform:translateZ(0);
+    isolation:isolate;
   }
   .brand{display:flex; align-items:center; gap:12px;}
   .brand-mark{
     width:32px; height:32px; border-radius:9px; flex-shrink:0;
     background:linear-gradient(160deg, var(--accent), #1f8f81);
     display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px -4px rgba(63,214,194,.5);
   }
   .brand-mark svg{width:16px; height:16px;}
-  .brand h1{font-size:14.5px; margin:0; letter-spacing:-.005em; font-weight:600; color:var(--text);}
+  .brand h1{font-size:14.5px; margin:0; letter-spacing:-.01em; font-weight:600; color:var(--text);}
   .brand p{margin:1px 0 0; font-size:11px; color:var(--faint); letter-spacing:.01em;}
   .brand p b{color:var(--muted); font-weight:500;}
 
   .topactions{display:flex; align-items:center; gap:8px;}
+  .divider{width:1px; height:20px; background:var(--border-strong); margin:0 4px;}
 
   button, .filebtn, a.linkbtn{
     font-family:var(--sans); font-size:12.5px; font-weight:500;
     border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface);
     color:var(--text); padding:8px 15px; cursor:pointer; text-decoration:none;
-    transition:.15s background, .15s border-color, .15s transform, .15s opacity;
+    transition:.15s background, .15s border-color, .15s transform, .15s opacity, .15s box-shadow;
     display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+    box-shadow:inset 0 1px 0 var(--highlight);
+    will-change:background-color, border-color, transform;
   }
   button:hover, .filebtn:hover, a.linkbtn:hover{background:var(--surface-2); border-color:var(--border-strong);}
-  button:active, .filebtn:active, a.linkbtn:active{transform:scale(.97);}
-  button.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600;}
+  button:active, .filebtn:active, a.linkbtn:active{transform:scale(.96);}
+  button.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; box-shadow:0 6px 18px -8px rgba(63,214,194,.55), inset 0 1px 0 rgba(255,255,255,.35);}
   button.primary:hover{background:var(--accent-strong); border-color:var(--accent-strong);}
   button:disabled{opacity:.32; cursor:not-allowed;}
   input[type=file]{display:none;}
   .icon{width:14px; height:14px; flex-shrink:0;}
 
+  button.icon-btn{width:36px; height:36px; padding:0; justify-content:center; flex-shrink:0;}
+  button.icon-btn svg{width:16px; height:16px;}
+  #themeToggle .sun, #themeToggle .moon{display:none;}
+  html[data-theme="dark"] #themeToggle .moon{display:block;}
+  html[data-theme="light"] #themeToggle .sun{display:block;}
+
   /* ================= outline id rack ================= */
   .rack{
     display:flex; align-items:center; gap:18px;
-    padding:16px 28px; border-bottom:1px solid var(--border);
+    padding:16px 28px; border-bottom:1px solid var(--border); border-radius:0;
+    border-left:none; border-right:none; border-top:none;
   }
   .rack-head{
     display:flex; flex-direction:column; gap:3px;
     padding-right:18px; border-right:1px solid var(--border); flex-shrink:0; min-width:118px;
   }
   .rack-head h2{
-    font-size:13px; color:var(--text); margin:0; font-weight:600; letter-spacing:-.005em;
+    font-size:13px; color:var(--text); margin:0; font-weight:600; letter-spacing:-.01em;
   }
   .count{font-family:var(--mono); font-size:11.5px; color:var(--faint);}
 
   .idlist{
     display:flex; flex-direction:row; align-items:center; gap:8px;
     overflow-x:auto; overflow-y:hidden; flex:1; padding:6px 2px;
-    scrollbar-width:thin;
+    scrollbar-width:thin; position:relative;
   }
   .idrow{
     display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px;
     width:60px; flex-shrink:0; padding:9px 6px 8px; border-radius:var(--r-md);
     border:1px solid var(--border); background:var(--surface); cursor:grab; position:relative;
     transition:.15s border-color, .15s background, .15s transform;
+    box-shadow:inset 0 1px 0 var(--highlight);
+    will-change:background-color, border-color, transform;
+    -webkit-user-select:none; user-select:none;
   }
   .idrow:hover{border-color:var(--border-strong); background:var(--surface-2);}
   .idrow:active{cursor:grabbing;}
-  .idrow.active{border-color:var(--accent); background:rgba(63,214,194,.1); box-shadow:0 0 0 1px var(--accent);}
-  .idrow.dragging{opacity:.35;}
+  .idrow.active{border-color:var(--accent); background:var(--surface-2); box-shadow:0 0 0 1px var(--accent), inset 0 1px 0 var(--highlight);}
+  .idrow.dragging{opacity:.3;}
+  .drop-line{
+    position:absolute; top:4px; bottom:4px; width:2px; border-radius:2px;
+    background:var(--accent); box-shadow:0 0 8px var(--accent); pointer-events:none;
+    transition:left .12s ease, opacity .12s ease; opacity:0;
+  }
+  .idrow-ghost{
+    position:fixed; top:0; left:0; z-index:200; pointer-events:none; margin:0;
+    box-shadow:0 20px 40px -10px rgba(0,0,0,.55), 0 0 0 1px var(--accent);
+    transform:scale(1.04) rotate(-1.5deg);
+    cursor:grabbing;
+  }
+  body.no-select, body.no-select *{
+    -webkit-user-select:none !important; user-select:none !important;
+    cursor:grabbing !important;
+  }
   .idrow.drag-over-top::before, .idrow.drag-over-bottom::after{
     content:''; position:absolute; top:6px; bottom:6px; width:2px; background:var(--accent); border-radius:2px;
   }
   .idrow.drag-over-top::before{left:-5px;}
   .idrow.drag-over-bottom::after{right:-5px;}
-  .idrow .grip{
-    color:var(--faint); font-size:10px; letter-spacing:0; user-select:none; line-height:1;
-  }
+  .idrow .grip{color:var(--faint); font-size:10px; letter-spacing:0; user-select:none; line-height:1;}
   .idrow .swatch{
     width:100%; height:24px; border-radius:6px; border:1px solid rgba(0,0,0,.35); flex-shrink:0;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
@@ -132,7 +224,7 @@
   .idrow .col-x{font-family:var(--mono); font-size:9px; color:var(--faint);}
   .idrow button{
     position:absolute; top:3px; right:3px; padding:2px 5px; font-size:9px; border-radius:var(--r-sm);
-    background:rgba(0,0,0,.35); border-color:transparent; color:var(--faint); opacity:0;
+    background:rgba(0,0,0,.35); border-color:transparent; color:var(--faint); opacity:0; box-shadow:none;
     transition:.12s opacity, .12s color;
   }
   .idrow:hover button{opacity:1;}
@@ -153,24 +245,21 @@
   }
 
   .console{border-radius:var(--r-lg); padding:24px 24px 20px;}
-  .editor h2{
-    font-size:14px; color:var(--text); margin:0 0 18px; font-weight:600; letter-spacing:-.005em;
-  }
+  .editor h2{font-size:14px; color:var(--text); margin:0 0 18px; font-weight:600; letter-spacing:-.01em;}
 
   .strip-and-controls{display:flex; flex-direction:column; gap:0;}
 
-  .controls{
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(258px, 1fr)); gap:12px;
-  }
+  .controls{display:grid; grid-template-columns:repeat(auto-fill, minmax(258px, 1fr)); gap:12px;}
   .field{
     background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md);
     padding:15px 16px; transition:.15s background, .15s border-color;
+    box-shadow:inset 0 1px 0 var(--highlight);
   }
   .field:hover{background:var(--surface-2); border-color:var(--border-strong);}
   .field .fh{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
   .field .fh .name{font-size:13px; font-weight:600; color:var(--text);}
   .field .fh .row-tag{
-    font-family:var(--mono); font-size:9.5px; color:var(--faint); background:rgba(255,255,255,.06);
+    font-family:var(--mono); font-size:9.5px; color:var(--faint); background:rgba(128,128,128,.14);
     padding:3px 7px; border-radius:var(--r-sm); letter-spacing:.02em;
   }
   .field .desc{font-size:12px; color:var(--muted); margin:0 0 12px; line-height:1.5;}
@@ -184,16 +273,26 @@
   input[type=color]::-webkit-color-swatch{border-radius:5px; border:none;}
   .hexval{font-family:var(--mono); font-size:11.5px; color:var(--muted);}
 
+  /* ---- sliders: track + thumb centered on the same axis ---- */
   input[type=range]{
-    -webkit-appearance:none; width:100%; height:3px; border-radius:2px; background:rgba(255,255,255,.14); outline:none;
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:20px; margin:0; padding:0; background:transparent; cursor:pointer;
+    display:block;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    width:100%; height:4px; border-radius:2px; background:rgba(128,128,128,.28);
   }
   input[type=range]::-webkit-slider-thumb{
     -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#fff;
-    border:none; cursor:pointer; margin-top:-6.5px; box-shadow:0 1px 4px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.1);
+    margin-top:-6px; border:none; cursor:pointer;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.35);
+  }
+  input[type=range]::-moz-range-track{
+    width:100%; height:4px; border-radius:2px; background:rgba(128,128,128,.28); border:none;
   }
   input[type=range]::-moz-range-thumb{
     width:16px; height:16px; border-radius:50%; background:#fff; border:none; cursor:pointer;
-    box-shadow:0 1px 4px rgba(0,0,0,.4);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.35);
   }
   .sliderrow{display:flex; align-items:center; gap:12px;}
   .sliderval{font-family:var(--mono); font-size:11px; width:88px; text-align:right; color:var(--muted); flex-shrink:0;}
@@ -201,7 +300,7 @@
   .togglerow{display:flex; align-items:center; gap:10px; cursor:pointer; width:fit-content;}
   .togglerow input[type=checkbox]{position:absolute; opacity:0; width:0; height:0;}
   .toggle-switch{
-    position:relative; width:40px; height:24px; border-radius:12px; background:rgba(255,255,255,.16);
+    position:relative; width:40px; height:24px; border-radius:12px; background:rgba(128,128,128,.3);
     border:none; flex-shrink:0; transition:.15s background;
   }
   .toggle-switch::after{
@@ -215,32 +314,28 @@
   .monitor{display:flex; flex-direction:column; gap:18px;}
   .screen{border-radius:var(--r-lg); padding:18px 18px 16px;}
   .screen-head{margin-bottom:12px;}
-  .screen-head h2{
-    font-size:12px; color:var(--muted); margin:0; font-weight:600; letter-spacing:.01em;
-  }
+  .screen-head h2{font-size:12px; color:var(--muted); margin:0; font-weight:600; letter-spacing:.01em;}
 
-  .glass{
-    position:relative; border-radius:var(--r-md); overflow:hidden; background:#0a0a0b;
-  }
+  .glass{position:relative; border-radius:var(--r-md); overflow:hidden; background:var(--glass-bg);}
   .tex-wrap, .demo-wrap{display:flex; flex-direction:column; align-items:center; gap:10px;}
 
-  /* full texture: kept visually large, but only the meaningful upper rows are
-     shown at full scale — the rest is black anyway, so it's cropped and
-     gently faded rather than displayed as a mostly-empty square */
+  /* full texture: sharp corners (it's literal pixel data, not a rounded UI card),
+     cropped to the meaningful upper rows and faded out where it's black anyway */
   .tex-crop{
     position:relative; width:100%; aspect-ratio:32/10; overflow:hidden;
-    border-radius:var(--r-md);
+    border-radius:0 !important;
     background-image:
-      linear-gradient(45deg, #151517 25%, transparent 25%),
-      linear-gradient(-45deg, #151517 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #151517 75%),
-      linear-gradient(-45deg, transparent 75%, #151517 75%);
+      linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%);
     background-size:12px 12px; background-position:0 0, 0 6px, 6px -6px, -6px 0;
-    background-color:#0a0a0b;
+    background-color:var(--checker-b);
   }
   #texCanvas{
     image-rendering:pixelated; image-rendering:crisp-edges;
     position:absolute; top:0; left:0; width:100%; height:auto; display:block;
+    border-radius:0;
     -webkit-mask-image:linear-gradient(to bottom, black 0%, black 20%, transparent 32%);
     mask-image:linear-gradient(to bottom, black 0%, black 20%, transparent 32%);
   }
@@ -252,21 +347,25 @@
 
   ::-webkit-scrollbar{width:8px; height:8px;}
   ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14); border-radius:5px;}
-  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22);}
+  ::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb); border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--scrollbar-thumb-hover);}
 
   .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-    background:rgba(28,28,30,.85); border:1px solid var(--border-strong); color:var(--text);
+    background:var(--toast-bg); border:1px solid var(--border-strong); color:var(--text);
     padding:11px 20px; border-radius:var(--r-pill); font-size:12.5px; font-weight:500;
-    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(28px) saturate(180%); backdrop-filter:blur(28px) saturate(180%);
     opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:60;
-    box-shadow:0 12px 32px -10px rgba(0,0,0,.6);
+    box-shadow:0 12px 32px -10px rgba(0,0,0,.5);
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
 </style>
 </head>
 <body>
+
+<div class="aurora" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+
+<div class="app">
 
 <div class="topbar">
   <div class="brand">
@@ -288,11 +387,26 @@
       <input id="uploadInput" type="file" accept="image/png,image/*">
     </label>
     <button id="downloadBtn" class="primary">Download PNG</button>
+    <span class="divider"></span>
+    <!-- DEV ONLY: copies the current outline IDs as a DEFAULT_OUTLINES code
+         snippet you can paste into the script. Delete this <button>, or add
+         style="display:none" to it, before shipping the final version. -->
+    <button id="copyConfigBtn" type="button" title="Copy current outline IDs as DEFAULT_OUTLINES code (dev only)">Copy config</button>
+    <span class="divider"></span>
+    <button id="themeToggle" class="icon-btn" type="button" aria-label="Toggle dark or light mode" title="Toggle dark / light mode">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M12 2.5v2.4M12 19.1v2.4M21.5 12h-2.4M4.9 12H2.5M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3 5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 6.8 6.8 0 0 0 20 14.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
 </div>
 
 <!-- OUTLINE IDS — one tile per outline ID, dragged left/right to reorder -->
-<div class="rack surface">
+<div class="rack surface-nb">
   <div class="rack-head">
     <h2>Outline IDs</h2>
     <span class="count" id="countLbl">0 / 32</span>
@@ -334,6 +448,8 @@
 
 <div class="toast" id="toast"></div>
 
+</div><!-- /.app -->
+
 <script>
 const MAX_OUTLINES = 32;
 const TEX_SIZE = 32;
@@ -351,8 +467,27 @@ const ROW_DEFS = [
   {key:'renderThroughWalls', type:'toggle', row:6, name:'Render through walls', tag:'row 6', desc:'When on, this outline is meant to render even when hidden behind other objects. Not shown in this preview.'},
 ];
 
+// Developer: populate this array to control which outline IDs everyone sees
+// the very first time they open this page (before they've saved anything of
+// their own — anyone with existing saved data keeps their own setup).
+// Leave it empty ([]) to start everyone with a single blank outline ID.
+// Easiest way to fill this in: set up your outline IDs the way you want using
+// the tool itself, then click "Copy config" in the top bar and paste the
+// result here. You can remove the "Copy config" button before shipping.
+const DEFAULT_OUTLINES = [
+];
+
+function initialOutlines(){
+  if(!Array.isArray(DEFAULT_OUTLINES) || DEFAULT_OUTLINES.length === 0){
+    return [ defaultOutline() ];
+  }
+  return DEFAULT_OUTLINES
+    .slice(0, MAX_OUTLINES)
+    .map(o => normalizeOutline(JSON.parse(JSON.stringify(o))));
+}
+
 let state = {
-  outlines: [ defaultOutline() ],
+  outlines: initialOutlines(),
   selected: 0
 };
 
@@ -416,7 +551,12 @@ function load(){
 }
 
 // ---------------- rendering: sidebar list ----------------
-let dragSrcIndex = null;
+// Reordering uses plain mouse/pointer events rather than the native HTML5
+// drag-and-drop API. Native DnD hands cursor control to the browser/OS, which
+// flashes a "not allowed" cursor for a frame at every drop-target boundary —
+// that's a browser limitation, not something event handling can fully avoid.
+// Doing it by hand means the cursor never changes and tiles just slide.
+let activeDrag = null; // { fromIndex, row, pointerId, startX, moved }
 
 function renderList(){
   const list = document.getElementById('idList');
@@ -424,7 +564,6 @@ function renderList(){
   state.outlines.forEach((o, i) => {
     const row = document.createElement('div');
     row.className = 'idrow' + (i === state.selected ? ' active' : '');
-    row.draggable = true;
     row.innerHTML = `
       <span class="grip" title="Drag to reorder">⠿</span>
       <div class="swatch" data-swatch-idx="${i}" style="background:${rgbToHex(o.outlineColor)}"></div>
@@ -434,49 +573,130 @@ function renderList(){
     `;
     row.addEventListener('click', (e) => {
       if(e.target.closest('button')) return;
+      if(row.dataset.justDragged === '1'){ delete row.dataset.justDragged; return; }
       state.selected = i;
       renderAll();
     });
     row.querySelector('button').addEventListener('click', () => deleteOutline(i));
 
-    row.addEventListener('dragstart', (e) => {
-      dragSrcIndex = i;
-      row.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(i));
-    });
-    row.addEventListener('dragend', () => {
-      row.classList.remove('dragging');
-      list.querySelectorAll('.idrow').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
-      dragSrcIndex = null;
-    });
-    row.addEventListener('dragover', (e) => {
+    row.addEventListener('pointerdown', (e) => {
+      if(e.button !== 0) return;
+      if(e.target.closest('button')) return;
       e.preventDefault();
-      if(dragSrcIndex === null || dragSrcIndex === i) return;
-      e.dataTransfer.dropEffect = 'move';
-      const rect = row.getBoundingClientRect();
-      const isAfter = (e.clientY - rect.top) > rect.height / 2;
-      row.classList.toggle('drag-over-top', !isAfter);
-      row.classList.toggle('drag-over-bottom', isAfter);
-    });
-    row.addEventListener('dragleave', () => {
-      row.classList.remove('drag-over-top', 'drag-over-bottom');
-    });
-    row.addEventListener('drop', (e) => {
-      e.preventDefault();
-      row.classList.remove('drag-over-top', 'drag-over-bottom');
-      if(dragSrcIndex === null || dragSrcIndex === i) return;
-      const rect = row.getBoundingClientRect();
-      const isAfter = (e.clientY - rect.top) > rect.height / 2;
-      let targetIndex = i + (isAfter ? 1 : 0);
-      if(dragSrcIndex < targetIndex) targetIndex -= 1; // account for the shift once the dragged item is removed
-      moveOutline(dragSrcIndex, targetIndex);
+      startTileDrag(e, row, i);
     });
 
     list.appendChild(row);
   });
   document.getElementById('countLbl').textContent = `${state.outlines.length} / ${MAX_OUTLINES}`;
   document.getElementById('addBtn').disabled = state.outlines.length >= MAX_OUTLINES;
+}
+
+function startTileDrag(e, row, originalIndex){
+  const list = document.getElementById('idList');
+  const children = Array.from(list.children); // stable snapshot — DOM order never changes mid-drag now
+  const rects = children.map(c => c.getBoundingClientRect()); // measured once, before any transform is applied
+  const gapPx = parseFloat(getComputedStyle(list).columnGap) || 8;
+  const nudge = 14; // px each neighbor shifts away from the hovered boundary
+  const rowRect = rects[originalIndex];
+  const grabOffsetX = e.clientX - rowRect.left;
+  const grabOffsetY = e.clientY - rowRect.top;
+
+  let dropLine = null;
+  activeDrag = {
+    row, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY,
+    moved: false, ghost: null, targetIndex: originalIndex
+  };
+  row.setPointerCapture(e.pointerId);
+
+  function clearNudges(){
+    children.forEach(c => { if(c !== row) c.style.transform = ''; });
+  }
+
+  function onMove(ev){
+    if(!activeDrag || ev.pointerId !== activeDrag.pointerId) return;
+    const dx = ev.clientX - activeDrag.startX;
+    const dy = ev.clientY - activeDrag.startY;
+    if(!activeDrag.moved && Math.hypot(dx, dy) > 4){
+      activeDrag.moved = true;
+      // only now commit to a drag: dim the original tile in place (it does NOT
+      // move) and spawn a floating ghost that follows the cursor
+      row.classList.add('dragging');
+      row.style.pointerEvents = 'none';
+      document.body.classList.add('no-select');
+      const ghost = row.cloneNode(true);
+      ghost.classList.add('idrow-ghost');
+      ghost.style.width = rowRect.width + 'px';
+      document.body.appendChild(ghost);
+      activeDrag.ghost = ghost;
+      dropLine = document.createElement('div');
+      dropLine.className = 'drop-line';
+      list.appendChild(dropLine);
+    }
+    if(!activeDrag.moved) return;
+
+    activeDrag.ghost.style.left = (ev.clientX - grabOffsetX) + 'px';
+    activeDrag.ghost.style.top = (ev.clientY - grabOffsetY) + 'px';
+
+    // which boundary (0..n) between the ORIGINAL tile positions is the
+    // pointer nearest to right now
+    let targetIndex = 0;
+    for(let k = 0; k < rects.length; k++){
+      const mid = rects[k].left + rects[k].width / 2;
+      if(ev.clientX > mid) targetIndex = k + 1;
+    }
+
+    // dropping immediately before/after its own original slot is a no-op —
+    // don't show a gap/line for that, it would be misleading
+    const isNoOp = (targetIndex === originalIndex) || (targetIndex === originalIndex + 1);
+    activeDrag.targetIndex = isNoOp ? originalIndex : targetIndex;
+
+    clearNudges();
+    if(isNoOp){
+      dropLine.style.opacity = '0';
+      return;
+    }
+    dropLine.style.opacity = '1';
+
+    const beforeEl = targetIndex - 1 >= 0 ? children[targetIndex - 1] : null;
+    const afterEl = targetIndex < children.length ? children[targetIndex] : null;
+    if(beforeEl && beforeEl !== row) beforeEl.style.transform = `translateX(-${nudge}px)`;
+    if(afterEl && afterEl !== row) afterEl.style.transform = `translateX(${nudge}px)`;
+
+    let boundaryClientX;
+    if(beforeEl && afterEl) boundaryClientX = (rects[targetIndex - 1].right + rects[targetIndex].left) / 2;
+    else if(!beforeEl) boundaryClientX = rects[0].left - gapPx / 2;
+    else boundaryClientX = rects[rects.length - 1].right + gapPx / 2;
+
+    const listRect = list.getBoundingClientRect();
+    dropLine.style.left = (boundaryClientX - listRect.left + list.scrollLeft) + 'px';
+  }
+
+  function onUp(ev){
+    if(!activeDrag || ev.pointerId !== activeDrag.pointerId) return;
+    row.releasePointerCapture(ev.pointerId);
+    row.classList.remove('dragging');
+    row.style.pointerEvents = '';
+    document.body.classList.remove('no-select');
+    if(activeDrag.ghost) activeDrag.ghost.remove();
+    if(dropLine) dropLine.remove();
+    clearNudges();
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+
+    if(activeDrag.moved){
+      row.dataset.justDragged = '1'; // suppress the click that follows this pointerup
+      let to = activeDrag.targetIndex;
+      if(originalIndex < to) to -= 1; // account for the shift once the dragged item is removed
+      moveOutline(originalIndex, to);
+    }
+    activeDrag = null;
+  }
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
 }
 
 // Moves the outline at `from` to position `to`, keeping the same outline selected.
@@ -970,6 +1190,52 @@ function renderDemo(){
   }
 }
 
+// ---------------- dev: copy current outline IDs as DEFAULT_OUTLINES code ----------------
+function outlineToCode(o){
+  return `  {\n` +
+    `    outlineColor: {r:${o.outlineColor.r}, g:${o.outlineColor.g}, b:${o.outlineColor.b}},\n` +
+    `    thickness: ${o.thickness},\n` +
+    `    fillColor: {r:${o.fillColor.r}, g:${o.fillColor.g}, b:${o.fillColor.b}},\n` +
+    `    pulse: ${o.pulse},\n` +
+    `    special: ${o.special},\n` +
+    `    specialSpeed: ${o.specialSpeed},\n` +
+    `    renderThroughWalls: ${o.renderThroughWalls}\n` +
+    `  }`;
+}
+function generateDefaultOutlinesCode(){
+  const items = state.outlines.map(outlineToCode).join(',\n');
+  return `const DEFAULT_OUTLINES = [\n${items}\n];`;
+}
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{
+    document.execCommand('copy');
+    toast('Config copied — paste into DEFAULT_OUTLINES');
+  }catch(e){
+    toast('Could not copy — check the console');
+    console.log(text);
+  }
+  ta.remove();
+}
+const copyConfigBtn = document.getElementById('copyConfigBtn');
+if(copyConfigBtn){
+  copyConfigBtn.addEventListener('click', () => {
+    const code = generateDefaultOutlinesCode();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code)
+        .then(() => toast('Config copied — paste into DEFAULT_OUTLINES'))
+        .catch(() => fallbackCopy(code));
+    } else {
+      fallbackCopy(code);
+    }
+  });
+}
+
 // ---------------- toast ----------------
 let toastTimer = null;
 function toast(msg){
@@ -987,7 +1253,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'outline_id_texture.png';
+    a.download = 'T_OutlineNiceInteractionSystem_01.png';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1072,6 +1338,30 @@ function renderAll(){
 load();
 buildDemoAssets();
 renderAll();
+</script>
+<script>
+  // Theme toggle — isolated from the app logic above, own storage key, dark by default.
+  (function(){
+    var KEY = 'outlineTool.theme';
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+
+    function apply(theme){
+      root.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+    }
+
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) {}
+    apply(saved === 'light' ? 'light' : 'dark');
+
+    if (btn) {
+      btn.addEventListener('click', function(){
+        var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        apply(next);
+        try { localStorage.setItem(KEY, next); } catch (e) {}
+      });
+    }
+  })();
 </script>
 </body>
 </html>
